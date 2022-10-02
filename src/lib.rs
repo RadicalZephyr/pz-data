@@ -1,6 +1,6 @@
 use nom::{
     bytes::complete::tag,
-    character::complete::{alphanumeric1, space1},
+    character::complete::{alphanumeric1, multispace1, space1},
     error::ParseError,
     multi::many0,
     sequence::{delimited, preceded},
@@ -43,11 +43,11 @@ where
         let (input, _) = tag(block_tag)(input)?;
         let (input, _) = space1(input)?;
         let (input, name) = alphanumeric1(input)?;
-        let (input, _) = space1(input)?;
+        let (input, _) = multispace1(input)?;
         let (input, items) = delimited(
             tag("{"),
-            many0(preceded(space1, |input| item.parse(input))),
-            preceded(space1, tag("}")),
+            many0(preceded(multispace1, |input| item.parse(input))),
+            preceded(multispace1, tag("}")),
         )(input)?;
 
         Ok((input, O::from((name, items))))
@@ -56,6 +56,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use nom::{character::complete::digit1, combinator::map_res, sequence::pair};
+
     use super::*;
 
     type Result<T> = IResult<&'static str, T, nom::error::Error<&'static str>>;
@@ -81,6 +83,27 @@ mod tests {
 
         let module_res: Result<ModuleBlock<&'static str>> =
             block("module", tag("foo"))(module_text);
+        let (_, actual) = module_res.expect("failed to parse module");
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parse_complex_item_block() {
+        let module_text = "items Bar {
+ item 1
+ item 2
+ item 3
+}";
+        let expected = ("Bar", vec![1, 2, 3]);
+
+        let module_res: Result<(&str, Vec<u8>)> = block(
+            "items",
+            preceded(
+                pair(tag("item"), space1),
+                map_res(digit1, |s: &str| s.parse::<u8>()),
+            ),
+        )(module_text);
         let (_, actual) = module_res.expect("failed to parse module");
 
         assert_eq!(expected, actual);
