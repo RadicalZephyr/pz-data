@@ -2,8 +2,8 @@ use nom::{
     bytes::complete::tag,
     character::complete::{alphanumeric1, multispace1, space1},
     error::ParseError,
-    multi::many0,
-    sequence::{delimited, pair, preceded},
+    multi::separated_list1,
+    sequence::{delimited, pair},
     IResult, Parser,
 };
 
@@ -26,31 +26,6 @@ impl<Definitions> ModuleBlock<Definitions> {
 impl<'a, T> From<(&'a str, Vec<T>)> for ModuleBlock<T> {
     fn from((name, items): (&'a str, Vec<T>)) -> Self {
         ModuleBlock::new(String::from(name), items)
-    }
-}
-
-pub fn block_repeated<'a, 'b, F, O, OI, E>(
-    block_tag: &'b str,
-    mut item: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
-where
-    'b: 'a,
-    O: From<(&'a str, Vec<OI>)>,
-    F: Parser<&'a str, OI, E>,
-    E: ParseError<&'a str>,
-{
-    move |input: &'a str| {
-        let (input, _) = tag(block_tag)(input)?;
-        let (input, _) = space1(input)?;
-        let (input, name) = alphanumeric1(input)?;
-        let (input, _) = multispace1(input)?;
-        let (input, items) = delimited(
-            tag("{"),
-            many0(preceded(multispace1, |input| item.parse(input))),
-            preceded(multispace1, tag("}")),
-        )(input)?;
-
-        Ok((input, O::from((name, items))))
     }
 }
 
@@ -79,9 +54,31 @@ where
     }
 }
 
+pub fn block_repeated<'a, 'b, F, O, OI, E>(
+    block_tag: &'b str,
+    mut item: F,
+) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+where
+    'b: 'a,
+    O: From<(&'a str, Vec<OI>)>,
+    F: Parser<&'a str, OI, E>,
+    E: ParseError<&'a str>,
+{
+    move |input: &'a str| {
+        block(
+            block_tag,
+            separated_list1(multispace1, |input| item.parse(input)),
+        )(input)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use nom::{character::complete::digit1, combinator::map_res, sequence::pair};
+    use nom::{
+        character::complete::digit1,
+        combinator::map_res,
+        sequence::{pair, preceded},
+    };
 
     use super::*;
 
