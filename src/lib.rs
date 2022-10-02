@@ -3,7 +3,7 @@ use nom::{
     character::complete::{alphanumeric1, multispace1, space1},
     error::ParseError,
     multi::many0,
-    sequence::{delimited, preceded},
+    sequence::{delimited, pair, preceded},
     IResult, Parser,
 };
 
@@ -29,7 +29,7 @@ impl<'a, T> From<(&'a str, Vec<T>)> for ModuleBlock<T> {
     }
 }
 
-pub fn block<'a, 'b, F, O, OI, E>(
+pub fn block_repeated<'a, 'b, F, O, OI, E>(
     block_tag: &'b str,
     mut item: F,
 ) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
@@ -54,6 +54,31 @@ where
     }
 }
 
+pub fn block<'a, 'b, F, O, OI, E>(
+    block_tag: &'b str,
+    mut item: F,
+) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+where
+    'b: 'a,
+    O: From<(&'a str, OI)>,
+    F: Parser<&'a str, OI, E>,
+    E: ParseError<&'a str>,
+{
+    move |input: &'a str| {
+        let (input, _) = tag(block_tag)(input)?;
+        let (input, _) = space1(input)?;
+        let (input, name) = alphanumeric1(input)?;
+        let (input, _) = multispace1(input)?;
+        let (input, parsed_item) = delimited(
+            pair(tag("{"), multispace1),
+            |input| item.parse(input),
+            pair(multispace1, tag("}")),
+        )(input)?;
+
+        Ok((input, O::from((name, parsed_item))))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use nom::{character::complete::digit1, combinator::map_res, sequence::pair};
@@ -65,9 +90,9 @@ mod tests {
     #[test]
     fn parse_container_block() {
         let module_text = "container Foo { foo }";
-        let expected = ("Foo", vec!["foo"]);
+        let expected = ("Foo", "foo");
 
-        let module_res: Result<(&str, Vec<&str>)> = block("container", tag("foo"))(module_text);
+        let module_res: Result<(&str, &str)> = block("container", tag("foo"))(module_text);
         let (_, actual) = module_res.expect("failed to parse module");
 
         assert_eq!(expected, actual);
@@ -82,7 +107,7 @@ mod tests {
         };
 
         let module_res: Result<ModuleBlock<&'static str>> =
-            block("module", tag("foo"))(module_text);
+            block_repeated("module", tag("foo"))(module_text);
         let (_, actual) = module_res.expect("failed to parse module");
 
         assert_eq!(expected, actual);
@@ -97,7 +122,7 @@ mod tests {
 }";
         let expected = ("Bar", vec![1, 2, 3]);
 
-        let module_res: Result<(&str, Vec<u8>)> = block(
+        let module_res: Result<(&str, Vec<u8>)> = block_repeated(
             "items",
             preceded(
                 pair(tag("item"), space1),
