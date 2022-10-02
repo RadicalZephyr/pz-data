@@ -75,7 +75,7 @@ where
 #[cfg(test)]
 mod tests {
     use nom::{
-        character::complete::{digit1, space0},
+        character::complete::{digit1, multispace0, space0},
         combinator::map_res,
         sequence::{pair, preceded},
     };
@@ -196,6 +196,40 @@ mod tests {
         );
 
         let module_res: Result<(&str, ItemBody)> = block("item", item_body)(module_text);
+        let (_, actual) = module_res.expect("failed to parse module");
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parse_complex_item_nested_blocks() {
+        let module_text = "
+module Base {
+  item RedRadish {
+    DisplayCategory = Food,
+    Type            = Food,
+    DisplayName     = Radish,
+    Icon            = Radish,
+  }
+}
+";
+        let expected = (
+            "Base",
+            vec![(
+                "RedRadish",
+                ItemBody {
+                    display_category: String::from("Food"),
+                    r#type: String::from("Food"),
+                    display_name: String::from("Radish"),
+                    icon: String::from("Radish"),
+                },
+            )],
+        );
+
+        let module_res: Result<(&str, Vec<(&str, ItemBody)>)> = preceded(
+            multispace0,
+            block_repeated("module", block("item", item_body)),
+        )(module_text);
         let (_, actual) = module_res.expect("failed to parse module");
 
         assert_eq!(expected, actual);
