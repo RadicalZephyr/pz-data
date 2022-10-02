@@ -3,13 +3,9 @@ use nom::{
     character::complete::{alphanumeric1, space1},
     error::ParseError,
     multi::many0,
-    sequence::delimited,
+    sequence::{delimited, preceded},
     IResult, Parser,
 };
-
-enum Error {
-    Dummy,
-}
 
 pub struct Module<Definitions> {
     pub blocks: Vec<ModuleBlock<Definitions>>,
@@ -50,8 +46,8 @@ where
         let (input, _) = space1(input)?;
         let (input, items) = delimited(
             tag("{"),
-            delimited(space1, many0(|input| item.parse(input)), space1),
-            tag("}"),
+            many0(preceded(space1, |input| item.parse(input))),
+            preceded(space1, tag("}")),
         )(input)?;
 
         Ok((input, O::from((name, items))))
@@ -65,11 +61,22 @@ mod tests {
     type Result<T> = IResult<&'static str, T, nom::error::Error<&'static str>>;
 
     #[test]
-    fn parse_block() {
-        let module_text = "module Base { foo }";
+    fn parse_container_block() {
+        let module_text = "container Foo { foo }";
+        let expected = ("Foo", vec!["foo"]);
+
+        let module_res: Result<(&str, Vec<&str>)> = block("container", tag("foo"))(module_text);
+        let (_, actual) = module_res.expect("failed to parse module");
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parse_repeated_block() {
+        let module_text = "module Base { foo foo foo }";
         let expected = ModuleBlock {
             name: String::from("Base"),
-            definitions: vec!["foo"],
+            definitions: vec!["foo", "foo", "foo"],
         };
 
         let module_res: Result<ModuleBlock<&'static str>> =
