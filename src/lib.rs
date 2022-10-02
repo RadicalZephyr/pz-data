@@ -70,6 +70,14 @@ where
     }
 }
 
+pub fn module<'a, F, I, E>(item: F) -> impl Parser<&'a str, ModuleBlock<I>, E>
+where
+    F: Parser<&'a str, I, E>,
+    E: ParseError<&'a str>,
+{
+    Parser::into(block_repeated("module", item))
+}
+
 #[cfg(test)]
 mod tests {
     use nom::{
