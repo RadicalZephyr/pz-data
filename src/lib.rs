@@ -223,18 +223,20 @@ mod tests {
         icon: String,
     }
 
-    fn field_value<'a, 'b, F, O, E>(
+    fn field_value<'a, 'b, 'c, F, O, E>(
         field_name: &'b str,
+        separator: &'c str,
         mut value: F,
     ) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
     where
         'b: 'a,
+        'c: 'a,
         F: Parser<&'a str, O, E>,
         E: ParseError<&'a str>,
     {
         move |input: &'a str| {
             let (input, _) = preceded(space0, tag(field_name))(input)?;
-            let (input, _) = delimited(space0, tag("="), space0)(input)?;
+            let (input, _) = delimited(space0, tag(separator), space0)(input)?;
             let (input, parsed_value) = value.parse(input)?;
             let (input, _) = tag(",")(input)?;
             Ok((input, parsed_value))
@@ -243,13 +245,14 @@ mod tests {
 
     fn item_body(input: &'static str) -> Result<ItemBody> {
         let (input, display_category) =
-            field_value("DisplayCategory", Parser::into(alphanumeric1))(input)?;
+            field_value("DisplayCategory", "=", Parser::into(alphanumeric1))(input)?;
         let (input, _) = multispace1(input)?;
-        let (input, r#type) = field_value("Type", Parser::into(alphanumeric1))(input)?;
+        let (input, r#type) = field_value("Type", "=", Parser::into(alphanumeric1))(input)?;
         let (input, _) = multispace1(input)?;
-        let (input, display_name) = field_value("DisplayName", Parser::into(alphanumeric1))(input)?;
+        let (input, display_name) =
+            field_value("DisplayName", "=", Parser::into(alphanumeric1))(input)?;
         let (input, _) = multispace1(input)?;
-        let (input, icon) = field_value("Icon", Parser::into(alphanumeric1))(input)?;
+        let (input, icon) = field_value("Icon", "=", Parser::into(alphanumeric1))(input)?;
         Ok((
             input,
             ItemBody {
