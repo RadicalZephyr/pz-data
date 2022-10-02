@@ -1,9 +1,9 @@
 use nom::{
     bytes::complete::tag,
-    character::complete::{multispace1, space1},
+    character::complete::{multispace1, space0, space1},
     error::ParseError,
     multi::separated_list1,
-    sequence::{delimited, pair},
+    sequence::{delimited, pair, preceded},
     AsChar, IResult, InputLength, InputTake, InputTakeAtPosition, Parser, Slice,
 };
 
@@ -56,6 +56,26 @@ impl Recipe {
             category: category.into(),
             need_to_be_learned,
         }
+    }
+}
+
+fn field_value<'a, 'b, 'c, F, O, E>(
+    field_name: &'b str,
+    separator: &'c str,
+    mut value: F,
+) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+where
+    'b: 'a,
+    'c: 'a,
+    F: Parser<&'a str, O, E>,
+    E: ParseError<&'a str>,
+{
+    move |input: &'a str| {
+        let (input, _) = preceded(space0, tag(field_name))(input)?;
+        let (input, _) = delimited(space0, tag(separator), space0)(input)?;
+        let (input, parsed_value) = value.parse(input)?;
+        let (input, _) = tag(",")(input)?;
+        Ok((input, parsed_value))
     }
 }
 
@@ -159,9 +179,9 @@ where
 #[cfg(test)]
 mod tests {
     use nom::{
-        character::complete::{alphanumeric1, digit1, multispace0, space0},
+        character::complete::{alphanumeric1, digit1, multispace0},
         combinator::map_res,
-        sequence::{pair, preceded},
+        sequence::pair,
     };
 
     use super::*;
@@ -221,26 +241,6 @@ mod tests {
         r#type: String,
         display_name: String,
         icon: String,
-    }
-
-    fn field_value<'a, 'b, 'c, F, O, E>(
-        field_name: &'b str,
-        separator: &'c str,
-        mut value: F,
-    ) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
-    where
-        'b: 'a,
-        'c: 'a,
-        F: Parser<&'a str, O, E>,
-        E: ParseError<&'a str>,
-    {
-        move |input: &'a str| {
-            let (input, _) = preceded(space0, tag(field_name))(input)?;
-            let (input, _) = delimited(space0, tag(separator), space0)(input)?;
-            let (input, parsed_value) = value.parse(input)?;
-            let (input, _) = tag(",")(input)?;
-            Ok((input, parsed_value))
-        }
     }
 
     fn item_body(input: &'static str) -> Result<ItemBody> {
