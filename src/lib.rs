@@ -49,6 +49,21 @@ fn string_with_spaces_delimited_by_open_brace<'a, E: ParseError<&'a str>>(
     Ok(input.take_split(name_len))
 }
 
+pub fn block<'a, 'b, F, O, E>(mut item: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+where
+    'b: 'a,
+    F: Parser<&'a str, O, E>,
+    E: ParseError<&'a str>,
+{
+    move |input: &'a str| {
+        delimited(
+            pair(tag("{"), multispace1),
+            |input| item.parse(input),
+            pair(multispace1, tag("}")),
+        )(input)
+    }
+}
+
 pub fn unnamed_block<'a, 'b, F, O, E>(
     block_tag: &'b str,
     mut item: F,
@@ -62,11 +77,7 @@ where
         let (input, _) = tag(block_tag)(input)?;
         let (input, _) = multispace1(input)?;
 
-        delimited(
-            pair(tag("{"), multispace1),
-            |input| item.parse(input),
-            pair(multispace1, tag("}")),
-        )(input)
+        block(|input| item.parse(input))(input)
     }
 }
 
@@ -84,11 +95,7 @@ where
         let (input, _) = space1(input)?;
         let (input, name) = string_with_spaces_delimited_by_open_brace(input)?;
         let (input, _) = multispace1(input)?;
-        let (input, parsed_item) = delimited(
-            pair(tag("{"), multispace1),
-            |input| item.parse(input),
-            pair(multispace1, tag("}")),
-        )(input)?;
+        let (input, parsed_item) = block(|input| item.parse(input))(input)?;
 
         Ok((input, (name, parsed_item)))
     }
