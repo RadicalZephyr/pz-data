@@ -75,7 +75,7 @@ where
 #[cfg(test)]
 mod tests {
     use nom::{
-        character::complete::digit1,
+        character::complete::{digit1, space0},
         combinator::map_res,
         sequence::{pair, preceded},
     };
@@ -111,7 +111,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_complex_item_block() {
+    fn parse_complex_item_repeated_block() {
         let module_text = "items Bar {
  item 1
  item 2
@@ -126,6 +126,76 @@ mod tests {
                 map_res(digit1, |s: &str| s.parse::<u8>()),
             ),
         )(module_text);
+        let (_, actual) = module_res.expect("failed to parse module");
+
+        assert_eq!(expected, actual);
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct ItemBody {
+        display_category: String,
+        r#type: String,
+        display_name: String,
+        icon: String,
+    }
+
+    fn field_value<'a, 'b, F, O, E>(
+        field_name: &'b str,
+        mut value: F,
+    ) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+    where
+        'b: 'a,
+        F: Parser<&'a str, O, E>,
+        E: ParseError<&'a str>,
+    {
+        move |input: &'a str| {
+            let (input, _) = preceded(space0, tag(field_name))(input)?;
+            let (input, _) = delimited(space0, tag("="), space0)(input)?;
+            let (input, parsed_value) = value.parse(input)?;
+            let (input, _) = tag(",")(input)?;
+            Ok((input, parsed_value))
+        }
+    }
+
+    fn item_body(input: &'static str) -> Result<ItemBody> {
+        let (input, display_category) =
+            field_value("DisplayCategory", Parser::into(alphanumeric1))(input)?;
+        let (input, _) = multispace1(input)?;
+        let (input, r#type) = field_value("Type", Parser::into(alphanumeric1))(input)?;
+        let (input, _) = multispace1(input)?;
+        let (input, display_name) = field_value("DisplayName", Parser::into(alphanumeric1))(input)?;
+        let (input, _) = multispace1(input)?;
+        let (input, icon) = field_value("Icon", Parser::into(alphanumeric1))(input)?;
+        Ok((
+            input,
+            ItemBody {
+                display_category,
+                r#type,
+                display_name,
+                icon,
+            },
+        ))
+    }
+
+    #[test]
+    fn parse_complex_item_heterogenous_block() {
+        let module_text = "item RedRadish {
+  DisplayCategory = Food,
+  Type            = Food,
+  DisplayName     = Radish,
+  Icon            = Radish,
+}";
+        let expected = (
+            "RedRadish",
+            ItemBody {
+                display_category: String::from("Food"),
+                r#type: String::from("Food"),
+                display_name: String::from("Radish"),
+                icon: String::from("Radish"),
+            },
+        );
+
+        let module_res: Result<(&str, ItemBody)> = block("item", item_body)(module_text);
         let (_, actual) = module_res.expect("failed to parse module");
 
         assert_eq!(expected, actual);
