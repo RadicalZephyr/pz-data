@@ -1,10 +1,10 @@
 use nom::{
     bytes::complete::tag,
-    character::complete::{alphanumeric1, multispace1, space1},
+    character::complete::{multispace1, space1},
     error::ParseError,
     multi::separated_list1,
     sequence::{delimited, pair},
-    IResult, Parser,
+    AsChar, IResult, InputLength, InputTake, InputTakeAtPosition, Parser, Slice,
 };
 
 pub struct Module<Definitions> {
@@ -29,6 +29,26 @@ impl<'a, T> From<(&'a str, Vec<T>)> for ModuleBlock<T> {
     }
 }
 
+fn non_curly_brace<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
+where
+    T: InputTakeAtPosition,
+    <T as InputTakeAtPosition>::Item: AsChar,
+{
+    input.split_at_position1_complete(|item| item.as_char() == '{', nom::error::ErrorKind::Char)
+}
+
+fn string_with_spaces_delimited_by_open_brace<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, &'a str, E> {
+    let (_tail, name_trailing_space_and_brace) = non_curly_brace(<&str>::clone(&input))?;
+    let len = name_trailing_space_and_brace.input_len();
+    let name_and_trailing_space = name_trailing_space_and_brace.slice(..len - 1);
+    let trimmed_name = name_and_trailing_space.trim_end();
+    let name_len = trimmed_name.input_len();
+
+    Ok(input.take_split(name_len))
+}
+
 pub fn block<'a, 'b, F, O, E>(
     block_tag: &'b str,
     mut item: F,
@@ -41,7 +61,7 @@ where
     move |input: &'a str| {
         let (input, _) = tag(block_tag)(input)?;
         let (input, _) = space1(input)?;
-        let (input, name) = alphanumeric1(input)?;
+        let (input, name) = string_with_spaces_delimited_by_open_brace(input)?;
         let (input, _) = multispace1(input)?;
         let (input, parsed_item) = delimited(
             pair(tag("{"), multispace1),
@@ -81,7 +101,7 @@ where
 #[cfg(test)]
 mod tests {
     use nom::{
-        character::complete::{digit1, multispace0, space0},
+        character::complete::{alphanumeric1, digit1, multispace0, space0},
         combinator::map_res,
         sequence::{pair, preceded},
     };
@@ -236,6 +256,17 @@ module Base {
             multispace0,
             block_repeated("module", block("item", item_body)),
         )(module_text);
+        let (_, actual) = module_res.expect("failed to parse module");
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parse_name_with_spaces() {
+        let module_text = "item Name With Spaces { Nil }";
+        let expected = ("Name With Spaces", "Nil");
+
+        let module_res: Result<(&str, &str)> = block("item", tag("Nil"))(module_text);
         let (_, actual) = module_res.expect("failed to parse module");
 
         assert_eq!(expected, actual);
