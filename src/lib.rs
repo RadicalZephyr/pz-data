@@ -19,10 +19,19 @@ pub struct ModuleBlock<Definitions> {
 
 #[derive(Debug, PartialEq)]
 pub struct Recipe {
+    name: String,
     ingredients: Vec<String>,
     result: String,
     time: f32,
     category: String,
+    need_to_be_learned: bool,
+}
+
+struct RecipeBody<'a> {
+    ingredients: Vec<&'a str>,
+    result: &'a str,
+    time: f32,
+    category: &'a str,
     need_to_be_learned: bool,
 }
 
@@ -43,6 +52,7 @@ impl<'a, T> From<(&'a str, Vec<T>)> for ModuleBlock<T> {
 
 impl Recipe {
     pub fn new(
+        name: impl Into<String>,
         ingredients: Vec<String>,
         result: impl Into<String>,
         time: f32,
@@ -50,6 +60,7 @@ impl Recipe {
         need_to_be_learned: bool,
     ) -> Self {
         Self {
+            name: name.into(),
             ingredients,
             result: result.into(),
             time,
