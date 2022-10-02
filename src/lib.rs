@@ -271,4 +271,16 @@ module Base {
 
         assert_eq!(expected, actual);
     }
+
+    #[test]
+    fn parse_name_with_spaces_and_brace_on_following_line() {
+        let module_text = "item Name With Spaces
+{ Nil }";
+        let expected = ("Name With Spaces", "Nil");
+
+        let module_res: Result<(&str, &str)> = block("item", tag("Nil"))(module_text);
+        let (_, actual) = module_res.expect("failed to parse module");
+
+        assert_eq!(expected, actual);
+    }
 }
