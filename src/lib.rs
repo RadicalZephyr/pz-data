@@ -29,14 +29,13 @@ impl<'a, T> From<(&'a str, Vec<T>)> for ModuleBlock<T> {
     }
 }
 
-pub fn block<'a, 'b, F, O, OI, E>(
+pub fn block<'a, 'b, F, O, E>(
     block_tag: &'b str,
     mut item: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+) -> impl FnMut(&'a str) -> IResult<&'a str, (&'a str, O), E>
 where
     'b: 'a,
-    O: From<(&'a str, OI)>,
-    F: Parser<&'a str, OI, E>,
+    F: Parser<&'a str, O, E>,
     E: ParseError<&'a str>,
 {
     move |input: &'a str| {
@@ -50,18 +49,17 @@ where
             pair(multispace1, tag("}")),
         )(input)?;
 
-        Ok((input, O::from((name, parsed_item))))
+        Ok((input, (name, parsed_item)))
     }
 }
 
-pub fn block_repeated<'a, 'b, F, O, OI, E>(
+pub fn block_repeated<'a, 'b, F, O, E>(
     block_tag: &'b str,
     mut item: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+) -> impl FnMut(&'a str) -> IResult<&'a str, (&'a str, Vec<O>), E>
 where
     'b: 'a,
-    O: From<(&'a str, Vec<OI>)>,
-    F: Parser<&'a str, OI, E>,
+    F: Parser<&'a str, O, E>,
     E: ParseError<&'a str>,
 {
     move |input: &'a str| {
@@ -104,7 +102,7 @@ mod tests {
         };
 
         let module_res: Result<ModuleBlock<&'static str>> =
-            block_repeated("module", tag("foo"))(module_text);
+            Parser::into(block_repeated("module", tag("foo"))).parse(module_text);
         let (_, actual) = module_res.expect("failed to parse module");
 
         assert_eq!(expected, actual);
