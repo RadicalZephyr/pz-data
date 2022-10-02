@@ -18,14 +18,19 @@ pub struct ModuleBlock<Definitions> {
 }
 
 impl<Definitions> ModuleBlock<Definitions> {
-    pub fn new(name: String, definitions: Vec<Definitions>) -> Self {
-        Self { name, definitions }
+    pub fn new(name: impl Into<String>, definitions: Vec<Definitions>) -> Self {
+        Self {
+            name: name.into(),
+            definitions,
+        }
     }
 }
 
 impl<'a, T> From<(&'a str, Vec<T>)> for ModuleBlock<T> {
     fn from((name, items): (&'a str, Vec<T>)) -> Self {
-        ModuleBlock::new(String::from(name), items)
+        ModuleBlock::new(name, items)
+    }
+}
     }
 }
 
