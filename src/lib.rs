@@ -112,17 +112,17 @@ mod tests {
 
     #[test]
     fn parse_complex_item_repeated_block() {
-        let module_text = "items Bar {
- item 1
- item 2
- item 3
+        let module_text = "block_type BlockName {
+ block_item 1
+ block_item 2
+ block_item 3
 }";
-        let expected = ("Bar", vec![1, 2, 3]);
+        let expected = ("BlockName", vec![1, 2, 3]);
 
         let module_res: Result<(&str, Vec<u8>)> = block_repeated(
-            "items",
+            "block_type",
             preceded(
-                pair(tag("item"), space1),
+                pair(tag("block_item"), space1),
                 map_res(digit1, |s: &str| s.parse::<u8>()),
             ),
         )(module_text);
