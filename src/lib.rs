@@ -1,9 +1,12 @@
 use nom::{
+    branch::alt,
     bytes::complete::tag,
-    character::complete::{multispace1, space0, space1},
+    character::complete::{alphanumeric1, multispace1, space0, space1},
+    combinator::map,
     error::ParseError,
     multi::separated_list1,
-    sequence::{delimited, pair, preceded},
+    number::complete::float,
+    sequence::{delimited, pair, preceded, terminated},
     AsChar, IResult, InputLength, InputTake, InputTakeAtPosition, Parser, Slice,
 };
 
@@ -65,6 +68,26 @@ impl Recipe {
             result: result.into(),
             time,
             category: category.into(),
+            need_to_be_learned,
+        }
+    }
+}
+
+impl<'a> From<(&'a str, RecipeBody<'a>)> for Recipe {
+    fn from((name, body): (&'a str, RecipeBody)) -> Self {
+        let RecipeBody {
+            ingredients,
+            result,
+            time,
+            category,
+            need_to_be_learned,
+        } = body;
+        Recipe {
+            name: name.to_string(),
+            ingredients: ingredients.into_iter().map(|s| s.to_string()).collect(),
+            result: result.to_string(),
+            time,
+            category: category.to_string(),
             need_to_be_learned,
         }
     }
@@ -187,10 +210,76 @@ where
     Parser::into(named_block_repeated("module", item))
 }
 
+fn bool_value<'a, E>(input: &'a str) -> IResult<&'a str, bool, E>
+where
+    E: ParseError<&'a str>,
+{
+    alt((map(tag("true"), |_| true), map(tag("false"), |_| false)))(input)
+}
+
+fn identifier1<'a, E>(input: &'a str) -> IResult<&'a str, &'a str, E>
+where
+    E: ParseError<&'a str>,
+{
+    input.split_at_position1_complete(
+        |item| {
+            if item.is_alphanum() {
+                return false;
+            }
+            item.as_char() != '.'
+        },
+        nom::error::ErrorKind::RegexpFind,
+    )
+}
+
+fn recipe_ingredient<'a, E>(input: &'a str) -> IResult<&'a str, &'a str, E>
+where
+    E: ParseError<&'a str>,
+{
+    terminated(identifier1, tag(","))(input)
+}
+
+fn recipe_body<'a, E>(input: &'a str) -> IResult<&'a str, RecipeBody, E>
+where
+    E: ParseError<&'a str>,
+{
+    let (input, ingredients) = separated_list1(multispace1, recipe_ingredient)(input)?;
+    let (input, _) = multispace1(input)?;
+
+    let (input, result) = field_value("Result", ":", alphanumeric1)(input)?;
+    let (input, _) = multispace1(input)?;
+
+    let (input, time) = field_value("Time", ":", float)(input)?;
+    let (input, _) = multispace1(input)?;
+
+    let (input, category) = field_value("Category", ":", alphanumeric1)(input)?;
+    let (input, _) = multispace1(input)?;
+
+    let (input, need_to_be_learned) = field_value("NeedToBeLearn", ":", bool_value)(input)?;
+
+    Ok((
+        input,
+        RecipeBody {
+            ingredients,
+            result,
+            time,
+            category,
+            need_to_be_learned,
+        },
+    ))
+}
+
+pub fn recipe<'a, E>(input: &'a str) -> IResult<&'a str, Recipe, E>
+where
+    E: ParseError<&'a str>,
+{
+    Parser::into(named_block("recipe", recipe_body)).parse(input)
+}
+
 #[cfg(test)]
 mod tests {
     use nom::{
-        character::complete::{alphanumeric1, digit1, multispace0},
+        character::complete::{digit1, multispace0},
         combinator::map_res,
         sequence::pair,
     };
@@ -366,6 +455,35 @@ module Base {
 
         let block_res: Result<&str> = unnamed_block("imports", tag("Base"))(test_text);
         let (_, actual) = block_res.expect("failed to parse block");
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parse_recipe() {
+        let module_text = "
+recipe Make Mildew Cure
+{
+  GardeningSprayEmpty,
+  Base.Milk,
+
+  Result:GardeningSprayMilk,
+  Time:40.0,
+  Category:Farming,
+  NeedToBeLearn:true,
+}
+";
+        let expected = Recipe::new(
+            "Make Mildew Cure",
+            vec!["GardeningSprayEmpty".to_string(), "Base.Milk".to_string()],
+            "GardeningSprayMilk",
+            40.0,
+            "Farming",
+            true,
+        );
+
+        let module_res: Result<Recipe> = preceded(multispace1, recipe)(module_text);
+        let (_, actual) = module_res.expect("failed to parse module");
 
         assert_eq!(expected, actual);
     }
