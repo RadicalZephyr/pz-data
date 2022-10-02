@@ -17,6 +17,15 @@ pub struct ModuleBlock<Definitions> {
     pub definitions: Vec<Definitions>,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Recipe {
+    ingredients: Vec<String>,
+    result: String,
+    time: f32,
+    category: String,
+    need_to_be_learned: bool,
+}
+
 impl<Definitions> ModuleBlock<Definitions> {
     pub fn new(name: impl Into<String>, definitions: Vec<Definitions>) -> Self {
         Self {
@@ -31,6 +40,22 @@ impl<'a, T> From<(&'a str, Vec<T>)> for ModuleBlock<T> {
         ModuleBlock::new(name, items)
     }
 }
+
+impl Recipe {
+    pub fn new(
+        ingredients: Vec<String>,
+        result: impl Into<String>,
+        time: f32,
+        category: impl Into<String>,
+        need_to_be_learned: bool,
+    ) -> Self {
+        Self {
+            ingredients,
+            result: result.into(),
+            time,
+            category: category.into(),
+            need_to_be_learned,
+        }
     }
 }
 
