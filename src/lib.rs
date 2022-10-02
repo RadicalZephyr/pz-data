@@ -201,47 +201,47 @@ mod tests {
 
     #[test]
     fn parse_container_block() {
-        let module_text = "container Foo { foo }";
+        let test_text = "container Foo { foo }";
         let expected = ("Foo", "foo");
 
-        let module_res: Result<(&str, &str)> = named_block("container", tag("foo"))(module_text);
-        let (_, actual) = module_res.expect("failed to parse module");
+        let block_res: Result<(&str, &str)> = named_block("container", tag("foo"))(test_text);
+        let (_, actual) = block_res.expect("failed to parse block");
 
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn parse_repeated_block() {
-        let module_text = "module Base { foo foo foo }";
+        let test_text = "module Base { foo foo foo }";
         let expected = ModuleBlock {
             name: String::from("Base"),
             definitions: vec!["foo", "foo", "foo"],
         };
 
-        let module_res: Result<ModuleBlock<&'static str>> =
-            Parser::into(named_block_repeated("module", tag("foo"))).parse(module_text);
-        let (_, actual) = module_res.expect("failed to parse module");
+        let block_res: Result<ModuleBlock<&'static str>> =
+            Parser::into(named_block_repeated("module", tag("foo"))).parse(test_text);
+        let (_, actual) = block_res.expect("failed to parse block");
 
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn parse_complex_item_repeated_block() {
-        let module_text = "block_type BlockName {
+        let test_text = "block_type BlockName {
  block_item 1
  block_item 2
  block_item 3
 }";
         let expected = ("BlockName", vec![1, 2, 3]);
 
-        let module_res: Result<(&str, Vec<u8>)> = named_block_repeated(
+        let block_res: Result<(&str, Vec<u8>)> = named_block_repeated(
             "block_type",
             preceded(
                 pair(tag("block_item"), space1),
                 map_res(digit1, |s: &str| s.parse::<u8>()),
             ),
-        )(module_text);
-        let (_, actual) = module_res.expect("failed to parse module");
+        )(test_text);
+        let (_, actual) = block_res.expect("failed to parse block");
 
         assert_eq!(expected, actual);
     }
@@ -277,7 +277,7 @@ mod tests {
 
     #[test]
     fn parse_complex_item_heterogenous_block() {
-        let module_text = "item RedRadish {
+        let test_text = "item RedRadish {
   DisplayCategory = Food,
   Type            = Food,
   DisplayName     = Radish,
@@ -293,15 +293,15 @@ mod tests {
             },
         );
 
-        let module_res: Result<(&str, ItemBody)> = named_block("item", item_body)(module_text);
-        let (_, actual) = module_res.expect("failed to parse module");
+        let block_res: Result<(&str, ItemBody)> = named_block("item", item_body)(test_text);
+        let (_, actual) = block_res.expect("failed to parse block");
 
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn parse_complex_item_nested_blocks() {
-        let module_text = "
+        let test_text = "
 module Base {
   item RedRadish {
     DisplayCategory = Food,
@@ -324,48 +324,48 @@ module Base {
             )],
         );
 
-        let module_res: Result<(&str, Vec<(&str, ItemBody)>)> = preceded(
+        let block_res: Result<(&str, Vec<(&str, ItemBody)>)> = preceded(
             multispace0,
             named_block_repeated("module", named_block("item", item_body)),
-        )(module_text);
-        let (_, actual) = module_res.expect("failed to parse module");
+        )(test_text);
+        let (_, actual) = block_res.expect("failed to parse block");
 
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn parse_name_with_spaces() {
-        let module_text = "item Name With Spaces { Nil }";
+        let test_text = "item Name With Spaces { Nil }";
         let expected = ("Name With Spaces", "Nil");
 
-        let module_res: Result<(&str, &str)> = named_block("item", tag("Nil"))(module_text);
-        let (_, actual) = module_res.expect("failed to parse module");
+        let block_res: Result<(&str, &str)> = named_block("item", tag("Nil"))(test_text);
+        let (_, actual) = block_res.expect("failed to parse block");
 
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn parse_name_with_spaces_and_brace_on_following_line() {
-        let module_text = "item Name With Spaces
+        let test_text = "item Name With Spaces
 { Nil }";
         let expected = ("Name With Spaces", "Nil");
 
-        let module_res: Result<(&str, &str)> = named_block("item", tag("Nil"))(module_text);
-        let (_, actual) = module_res.expect("failed to parse module");
+        let block_res: Result<(&str, &str)> = named_block("item", tag("Nil"))(test_text);
+        let (_, actual) = block_res.expect("failed to parse block");
 
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn parse_unnamed_block() {
-        let module_text = "imports
+        let test_text = "imports
 {
   Base
 }";
         let expected = "Base";
 
-        let module_res: Result<&str> = unnamed_block("imports", tag("Base"))(module_text);
-        let (_, actual) = module_res.expect("failed to parse module");
+        let block_res: Result<&str> = unnamed_block("imports", tag("Base"))(test_text);
+        let (_, actual) = block_res.expect("failed to parse block");
 
         assert_eq!(expected, actual);
     }
