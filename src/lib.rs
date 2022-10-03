@@ -13,15 +13,8 @@ use nom::{
 mod block;
 pub use block::{named_block, named_block_repeated, unnamed_block};
 
-pub struct Module<Definitions> {
-    pub blocks: Vec<ModuleBlock<Definitions>>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ModuleBlock<Definitions> {
-    pub name: String,
-    pub definitions: Vec<Definitions>,
-}
+mod module;
+pub use module::{Module, ModuleBlock};
 
 #[derive(Debug, PartialEq)]
 pub struct Recipe {
@@ -39,21 +32,6 @@ struct RecipeBody<'a> {
     time: f32,
     category: &'a str,
     need_to_be_learned: bool,
-}
-
-impl<Definitions> ModuleBlock<Definitions> {
-    pub fn new(name: impl Into<String>, definitions: Vec<Definitions>) -> Self {
-        Self {
-            name: name.into(),
-            definitions,
-        }
-    }
-}
-
-impl<'a, T> From<(&'a str, Vec<T>)> for ModuleBlock<T> {
-    fn from((name, items): (&'a str, Vec<T>)) -> Self {
-        ModuleBlock::new(name, items)
-    }
 }
 
 impl Recipe {
