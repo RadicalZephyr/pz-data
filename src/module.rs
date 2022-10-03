@@ -1,3 +1,7 @@
+use nom::{error::ParseError, Parser};
+
+use crate::named_block_repeated;
+
 pub struct Module<Definitions> {
     pub blocks: Vec<ModuleBlock<Definitions>>,
 }
@@ -21,6 +25,14 @@ impl<'a, T> From<(&'a str, Vec<T>)> for ModuleBlock<T> {
     fn from((name, items): (&'a str, Vec<T>)) -> Self {
         ModuleBlock::new(name, items)
     }
+}
+
+pub fn module<'a, F, I, E>(item: F) -> impl Parser<&'a str, ModuleBlock<I>, E>
+where
+    F: Parser<&'a str, I, E>,
+    E: ParseError<&'a str>,
+{
+    Parser::into(named_block_repeated("module", item))
 }
 
 #[cfg(test)]

@@ -12,7 +12,7 @@ mod block;
 pub use block::{named_block, named_block_repeated, unnamed_block};
 
 mod module;
-pub use module::{Module, ModuleBlock};
+pub use module::{module, Module, ModuleBlock};
 
 mod recipe;
 pub use recipe::{recipe, Recipe};
@@ -35,14 +35,6 @@ where
         let (input, _) = tag(",")(input)?;
         Ok((input, parsed_value))
     }
-}
-
-pub fn module<'a, F, I, E>(item: F) -> impl Parser<&'a str, ModuleBlock<I>, E>
-where
-    F: Parser<&'a str, I, E>,
-    E: ParseError<&'a str>,
-{
-    Parser::into(named_block_repeated("module", item))
 }
 
 fn bool_value<'a, E>(input: &'a str) -> IResult<&'a str, bool, E>
